@@ -11,6 +11,7 @@ type House = {
     id: number,
     address: string,
     type: "house" | "farm" | "flat"
+    capacity: number
 }
 
 
@@ -27,37 +28,44 @@ let houses: House[] = [
     {
         id: 1,
         address: "9521 School Lane, PORTSMOUTH, PO59 3UC",
-        type: "flat"
+        type: "flat",
+        capacity: 3 
     },
     {
         id: 2,
         address: "90 Kings Road, NEWCASTLE UPON TYNE, NE55 4FS",
-        type: "house"
+        type: "house",
+        capacity: 5
     },
     {
         id: 3,
         address: "378 New Road, BLACKBURN, BB7 6EJ",
-        type: "farm"
+        type: "farm",
+        capacity: 7 
     },
     {
         id: 4,
         address: "49 North Road, DARTFORD, DA26 4NZ",
-        type: "house"
+        type: "house",
+        capacity: 3
     },
     {
         id: 5,
         address: "83 Mill Road, NORTH LONDON, N26 0UW",
-        type: "flat"
-    },
+        type: "flat",
+        capacity:  3
+       },
     {
         id: 6,
         address: "79 Albert Road, PETERBOROUGH, PE88 6UO",
-        type: "farm"
-    },
+        type: "farm",
+        capacity: 10
+      },
     {
         id: 7,
         address: "64 Victoria Road, SUNDERLAND, SR31 6FD",
-        type: "house"
+        type: "house",
+        capacity: 5
     }
 ]
 
@@ -189,6 +197,14 @@ app.post('/residents', (req, res) => {
     let house = houses.find (house => house.id === req.body.houseId)
     if(!house) errors.push(`House with id ${req.body.houseId} doesn't exist!`)
 
+//@ts-ignore
+    let residentsInAHouse: Resident[] =  residents.filter(resident => resident.houseId === house.id)  
+    //@ts-ignore
+    let availableCapacity = house.capacity - residentsInAHouse.length
+    if(availableCapacity <= 0)    
+    errors.push('There is no more room in these house!')
+
+
     if (errors.length === 0) {
         let newResident: Resident = {
             id: residents.length === 0 ? 1 : residents[residents.length - 1].id + 1,
@@ -247,7 +263,11 @@ app.delete('/residents/:id', (req, res) => {
 
 
 app.get('/houses', (req, res) => {
-    res.send(houses)
+    let housesToSend = houses.map(house => {
+        const foundResidents = residents.filter( resident => resident.houseId === house.id)
+        return{ ...house, residents: foundResidents }
+    })
+    res.send(housesToSend)
 })
 
 app.get('/houses/:id', (req, res) => {
@@ -260,6 +280,65 @@ app.get('/houses/:id', (req, res) => {
     }
 })
 
+app.post('/houses', (req, res) => {
+    let errors: string[] = []
+
+    if (typeof req.body.address !== "string")
+    errors.push("Address not given or not a string")
+
+    if (typeof req.body.type !== "string")
+    errors.push("Type not given or not 'flat', 'house' or 'farm' !")
+    
+    if (typeof req.body.capacity !== "number")
+    errors.push('Capacity not given or not a number!')
+
+    
+    if (errors.length === 0) {
+        const newHouse = {
+            id: houses.length === 0 ? 1 : houses[houses.length - 1].id + 1,
+            address: req.body.address,
+            type: req.body.type,
+            capacity: req.body.capacity
+        }
+        houses.push(newHouse)
+        res.send(newHouse)
+    } else {
+        res.status(400).send({ errors})
+    }
+})
+
+app.patch('/houses/:id', (req, res) => {
+    let id = Number(req.params.id)
+    let match = houses.find(house => house.id === id)
+
+    if (match) {
+        if (req.body.address) 
+        match.address = req.body.address
+
+        if(req.body.type)
+        match.type = req.body.type
+
+        if(req.body.capacity)
+        match.capacity = req.body.capacity
+
+        res.send(match)
+    } else {
+        res.status(404).send("House not found, it's probably haunted.")
+    }
+})
+
+
+app.delete('/houses/:id', (req, res) => {
+    let id = Number(req.params.id)
+    let indexToDelete =  houses.findIndex(house => house.id === id)
+
+    if (indexToDelete > -1) {
+        houses = houses.filter( house => house.id !== id)
+        res.send( { message: "House deleted successfully!" })
+    } else +
+    res.status(404).send({ error: "House not found, search for the gohst!" })
+
+})
 app.listen(port, ()=> {
     console.log(`Server is on: http://localhost:${port}`)
 })
